@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1d5684">
+<title>مدیریت مالی خانواده</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap');
+:root{--blue:#236b9b;--navy:#183e70;--bg:#f2f5fa;--ink:#172b4d;--muted:#718096;--line:#dce5ef;--green:#16845b;--red:#d04b4b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Vazirmatn,sans-serif}
+header{background:linear-gradient(120deg,var(--navy),#287eaa);color:#fff;padding:24px 18px 28px;border-radius:0 0 26px 26px}
+header .wrap,main{max-width:900px;margin:auto}header h1{font-size:23px;margin:0 0 5px}header p{margin:0;color:#d8e8f5;font-size:13px}
+main{padding:16px 13px 40px}.card{background:#fff;border-radius:19px;padding:18px;margin:0 0 14px;box-shadow:0 5px 22px #183e7010}
+h2{font-size:17px;margin:0 0 14px}.muted,.hint{color:var(--muted);font-size:12px;line-height:1.9}
+input,select,button{font:inherit}input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;margin:6px 0 11px;background:#fff;color:var(--ink);min-height:46px}
+label{font-size:12px;color:#52647b}button{border:0;border-radius:12px;padding:11px 15px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;min-height:43px}
+button:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#eaf1f8;color:#244a70}.danger{background:#fff0f0;color:#b52e2e}.smallbtn{padding:7px 10px;min-height:34px;font-size:12px}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.row .fit{flex:0 0 auto}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stat{background:#f3f7fc;border-radius:14px;padding:13px;min-width:0}.stat small{color:var(--muted)}.stat strong{display:block;font-size:18px;margin-top:5px;overflow-wrap:anywhere}
+.green{color:var(--green)}.red{color:var(--red)}.hidden{display:none!important}
+.tabs{display:flex;gap:7px;overflow:auto;padding:2px 0 12px}.tabs button{white-space:nowrap;flex:0 0 auto}.tabs button.active{background:var(--navy)}
+.section{display:none}.section.active{display:block}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #edf0f5}.item:last-child{border:0}.item strong{font-size:14px}.item small{display:block;color:var(--muted);font-size:11px;margin-top:4px}.item .right{text-align:left;white-space:nowrap}
+.actions{display:flex;gap:5px;justify-content:flex-end;margin-top:6px}
+.pill{display:inline-block;background:#eef4fa;border-radius:30px;padding:3px 9px;font-size:11px;color:#48627e}
+#notice{padding:10px;border-radius:10px;background:#fff8e8;color:#805b17;font-size:12px;margin-bottom:12px;display:none}
+#toast{position:fixed;bottom:18px;left:14px;right:14px;max-width:600px;margin:auto;padding:12px 15px;background:#183e70;color:white;border-radius:12px;z-index:20;display:none;box-shadow:0 5px 25px #0002}
+.barrow{display:grid;grid-template-columns:75px 1fr 90px;gap:8px;align-items:center;margin:10px 0;font-size:12px}.barbg{height:12px;background:#edf2f7;border-radius:20px;overflow:hidden}.barfill{height:100%;background:#2b80aa;border-radius:20px}
+hr{border:0;border-top:1px solid #edf0f5;margin:15px 0}
+@media(min-width:650px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.twocol{display:grid;grid-template-columns:1fr 1fr;gap:14px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>مدیریت مالی خانواده</h1><p>ثبت، پیگیری و برنامه‌ریزی درآمد و هزینه‌های خانواده</p></div></header>
+<main>
+<div id="notice"></div>
+<section id="auth" class="card">
+<h2>ورود به حساب کاربری</h2>
+<label>ایمیل</label><input id="email" type="email" autocomplete="username" placeholder="ایمیل حساب">
+<label>رمز عبور</label><input id="password" type="password" autocomplete="current-password" placeholder="رمز عبور">
+<div class="row"><button id="login">ورود</button><button id="signup" class="secondary">ساخت حساب</button></div>
+<p class="hint">برای ورود از حساب موجود استفاده کن. حساب همسر پس از ساخت، باید به خانواده متصل شود.</p>
+</section>
+
+<section id="app" class="hidden">
+<div class="card">
+<div class="row"><div><strong id="who"></strong><div class="muted" id="familyName"></div></div><button class="secondary fit" id="logout">خروج</button></div>
+</div>
+<nav class="tabs">
+<button class="active" data-tab="dashboard">داشبورد</button>
+<button data-tab="transactions">تراکنش‌ها</button>
+<button data-tab="budget">بودجه</button>
+<button data-tab="reports">گزارش‌ها</button>
+<button data-tab="settings">تنظیمات خانواده</button>
+</nav>
+
+<div id="dashboard" class="section active">
+<div class="card">
+<h2>خلاصه این ماه</h2>
+<div class="grid">
+<div class="stat"><small>درآمد</small><strong class="green" id="sumIncome">۰</strong></div>
+<div class="stat"><small>هزینه</small><strong class="red" id="sumExpense">۰</strong></div>
+<div class="stat"><small>مانده</small><strong id="sumBalance">۰</strong></div>
+<div class="stat"><small>بودجه ماهانه</small><strong id="sumBudget">ثبت نشده</strong></div>
+</div>
+<div class="muted" id="budgetProgress" style="margin-top:10px"></div>
+</div>
+<div class="card">
+<h2 id="formTitle">ثبت تراکنش جدید</h2>
+<input id="editId" type="hidden"><input id="editKind" type="hidden">
+<label>نوع تراکنش</label><select id="kind"><option value="expense">هزینه</option><option value="income">درآمد</option></select>
+<label>مبلغ به تومان</label><input id="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="مثلاً ۵۰۰۰۰۰">
+<label>شرح تراکنش</label><input id="description" maxlength="160" placeholder="مثلاً خرید هفتگی">
+<label>دسته‌بندی</label><select id="category"><option value="">بدون دسته‌بندی</option></select>
+<label>تاریخ</label><input id="date" type="date">
+<div class="row"><button id="saveTx">ثبت تراکنش</button><button id="cancelEdit" class="secondary hidden">لغو ویرایش</button></div>
+<p class="hint">ثبت‌کننده و پرداخت‌کننده/دریافت‌کننده به‌صورت خودکار از حساب واردشده ثبت می‌شود.</p>
+</div>
+<div class="card"><h2>آخرین تراکنش‌ها</h2><div id="recent"></div></div>
+</div>
+
+<div id="transactions" class="section">
+<div class="card">
+<h2>جست‌وجو و سوابق</h2>
+<div class="twocol">
+<div><label>ماه</label><input id="filterMonth" type="month"></div>
+<div><label>نوع</label><select id="filterKind"><option value="all">همه</option><option value="expense">هزینه</option><option value="income">درآمد</option></select></div>
+</div>
+<label>جست‌وجو در شرح</label><input id="searchText" placeholder="عبارت موردنظر">
+<div class="row"><button id="applyFilter">اعمال فیلتر</button><button id="exportCsv" class="secondary">خروجی CSV</button></div>
+<div id="history"></div>
+</div>
+</div>
+
+<div id="budget" class="section">
+<div class="card"><h2>بودجه ماهانه</h2>
+<label>ماه</label><input id="budgetMonth" type="month">
+<label>مبلغ بودجه به تومان</label><input id="budgetAmount" type="number" min="0" inputmode="numeric" placeholder="مبلغ بودجه">
+<button id="saveBudget">ذخیره بودجه</button>
+<hr><div id="budgetList"></div>
+</div>
+</div>
+
+<div id="reports" class="section">
+<div class="card"><h2>گزارش شش ماه اخیر</h2><div id="reportChart"></div><hr>
+<div class="grid">
+<div class="stat"><small>جمع درآمد دوره</small><strong class="green" id="periodIncome">۰</strong></div>
+<div class="stat"><small>جمع هزینه دوره</small><strong class="red" id="periodExpense">۰</strong></div>
+</div></div>
+</div>
+
+<div id="settings" class="section">
+<div class="card"><h2>دسته‌بندی‌ها</h2>
+<label>نوع دسته‌بندی</label><select id="catType"><option value="expense">هزینه</option><option value="income">درآمد</option></select>
+<label>نام دسته‌بندی</label><input id="catName" maxlength="50" placeholder="مثلاً خوراک">
+<button id="addCategory">افزودن دسته‌بندی</button>
+<div id="categoryList"></div>
+</div>
+<div class="card"><h2>افزودن همسر به خانواده</h2>
+<p class="hint">ابتدا همسرتان باید با ایمیل خودش در همین برنامه یک حساب بسازد و یک‌بار وارد شود. سپس ایمیل همان حساب را اینجا وارد کنید تا به خانواده فعلی متصل شود.</p>
+<label>ایمیل حساب همسر</label><input id="spouseEmail" type="email" placeholder="ایمیل حساب همسر">
+<button id="addSpouse">اتصال به خانواده</button>
+<p class="hint">این قابلیت پس از اجرای فایل SQL همراه برنامه در Supabase فعال می‌شود. دسترسی فقط برای مدیر خانواده است.</p>
+</div>
+<div class="card"><h2>اطلاعات خانواده</h2><p id="familyInfo" class="muted"></p></div>
+</div>
+</section>
+</main>
+<div id="toast"></div>
+<script>
+'use strict';
+const SUPABASE_URL='https://axnmwjubxfyfodldqxrs.supabase.co';
+const SUPABASE_KEY='sb_publishable_EzFOCiq3E_hc_5FV1HF22w_Fv1lMSMZ';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let user=null,householdId=null,householdName='خانواده ما',categories=[],allRows=[],filteredRows=[];
+const $=id=>document.getElementById(id);
+const money=n=>Number(n||0).toLocaleString('fa-IR')+' تومان';
+const today=()=>{let d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const monthNow=()=>today().slice(0,7);
+const startOf=m=>m+'-01';
+const nextOf=m=>{let [y,mo]=m.split('-').map(Number);if(mo===12){y++;mo=1}else mo++;return y+'-'+String(mo).padStart(2,'0')+'-01'};
+const faDate=s=>{if(!s)return '';let d=new Date(s+'T12:00:00');return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'long',day:'numeric'}).format(d)};
+function toast(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',3200)}
+function err(e){toast(e?.message||String(e))}
+function showApp(v){$('auth').classList.toggle('hidden',v);$('app').classList.toggle('hidden',!v)}
+function safeText(el,t){el.textContent=t??''}
+function activateTab(name){document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===name));if(name==='transactions')loadHistory();if(name==='reports')loadReports();if(name==='budget')loadBudgets()}
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>activateTab(b.dataset.tab)));
+async function getHousehold(){
+ const {data,error}=await db.from('household_members').select('household_id,role,households(name)').eq('user_id',user.id).limit(1);
+ if(error)throw error;if(!data?.length)throw new Error('این حساب هنوز عضو هیچ خانواده‌ای نیست. ابتدا حساب مالک را وارد کنید یا عضویت را از مدیر خانواده دریافت کنید.');
+ householdId=data[0].household_id;householdName=data[0].households?.name||'خانواده';
+ $('familyName').textContent=householdName;$('familyInfo').textContent='نام خانواده: '+householdName+' | شناسه خانواده: '+householdId;
+}
+async function loadCategories(){
+ const {data,error}=await db.from('categories').select('id,name,category_type').eq('household_id',householdId).order('name');
+ if(error)throw error;categories=data||[];renderCategorySelect();renderCategoryList();
+}
+function renderCategorySelect(){
+ let kind=$('kind').value,old=$('category').value;
+ $('category').innerHTML='<option value="">بدون دسته‌بندی</option>';
+ categories.filter(c=>c.category_type===kind).forEach(c=>{let o=document.createElement('option');o.value=c.id;o.textContent=c.name;$('category').append(o)});
+ if(categories.some(c=>String(c.id)===old))$('category').value=old;
+}
+function renderCategoryList(){
+ const box=$('categoryList');box.innerHTML='';
+ if(!categories.length){box.innerHTML='<p class="muted">هنوز دسته‌بندی ثبت نشده است.</p>';return}
+ categories.forEach(c=>{let d=document.createElement('div');d.className='item';let a=document.createElement('div');a.innerHTML='';let s=document.createElement('strong');s.textContent=c.name;let sm=document.createElement('small');sm.textContent=c.category_type==='income'?'درآمد':'هزینه';a.append(s,sm);let b=document.createElement('button');b.className='secondary smallbtn';b.textContent='تغییر نام';b.onclick=async()=>{let n=prompt('نام جدید دسته‌بندی',c.name);if(!n||!n.trim())return;let r=await db.from('categories').update({name:n.trim()}).eq('id',c.id).eq('household_id',householdId);if(r.error)return err(r.error);await loadCategories();toast('نام دسته‌بندی تغییر کرد')};d.append(a,b);box.append(d)});
+}
+async function start(userData){
+ user=userData;safeText($('who'),user.email||'کاربر');await getHousehold();await loadCategories();
+ $('date').value=today();$('filterMonth').value=monthNow();$('budgetMonth').value=monthNow();
+ showApp(true);await refreshDashboard();await loadHistory();await loadBudgets();
+}
+async function login(){
+ const {data,error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+ if(error)return err(error);try{await start(data.user)}catch(e){showApp(false);err(e)}
+}
+$('login').onclick=login;
+$('signup').onclick=async()=>{const {data,error}=await db.auth.signUp({email:$('email').value.trim(),password:$('password').value});if(error)return err(error);toast(data.session?'حساب ساخته شد. اکنون وارد می‌شوید.':'حساب ساخته شد؛ در صورت درخواست، ایمیل را تأیید کنید و سپس وارد شوید.')};
+$('logout').onclick=async()=>{await db.auth.signOut();user=null;householdId=null;showApp(false)};
+$('kind').onchange=renderCategorySelect;
+async function refreshDashboard(){
+ const m=monthNow(),from=startOf(m),to=nextOf(m);
+ const [ir,er,br]=await Promise.all([
+ db.from('incomes').select('amount').eq('household_id',householdId).gte('income_date',from).lt('income_date',to),
+ db.from('expenses').select('amount').eq('household_id',householdId).gte('expense_date',from).lt('expense_date',to),
+ db.from('budgets').select('amount').eq('household_id',householdId).eq('month',from).maybeSingle()
+ ]);
+ if(ir.error)throw ir.error;if(er.error)throw er.error;if(br.error)throw br.error;
+ const income=(ir.data||[]).reduce((s,x)=>s+Number(x.amount),0),expense=(er.data||[]).reduce((s,x)=>s+Number(x.amount),0),budget=Number(br.data?.amount||0);
+ $('sumIncome').textContent=money(income);$('sumExpense').textContent=money(expense);$('sumBalance').textContent=money(income-expense);$('sumBudget').textContent=budget?money(budget):'ثبت نشده';
+ $('budgetProgress').textContent=budget?`تا این لحظه ${Math.round(expense/budget*100)}٪ بودجه مصرف شده است.`:'برای مشاهده میزان مصرف، بودجه ماهانه ثبت کنید.';
+ await loadRecent();
+}
+function rowItem(x,actions=true){
+ const d=document.createElement('div');d.className='item';
+ const left=document.createElement('div'),title=document.createElement('strong'),sub=document.createElement('small');
+ title.textContent=x.description|| (x.kind==='income'?'درآمد':'هزینه');
+ sub.textContent=faDate(x.date)+' · '+(x.kind==='income'?'درآمد':'هزینه')+' · '+(x.actor===user.id?'ثبت‌شده توسط شما':'عضو دیگر خانواده');
+ left.append(title,sub);
+ const right=document.createElement('div');right.className='right';
+ const amount=document.createElement('strong');amount.className=x.kind==='income'?'green':'red';amount.textContent=(x.kind==='income'?'+ ':'− ')+money(x.amount);right.append(amount);
+ if(actions){const act=document.createElement('div');act.className='actions';const edit=document.createElement('button');edit.className='secondary smallbtn';edit.textContent='ویرایش';edit.onclick=()=>editRow(x);const del=document.createElement('button');del.className='danger smallbtn';del.textContent='حذف';del.onclick=()=>deleteRow(x);act.append(edit,del);right.append(act)}
+ d.append(left,right);return d;
+}
+async function fetchRows(month){
+ const from=startOf(month),to=nextOf(month);
+ const [i,e]=await Promise.all([
+ db.from('incomes').select('id,amount,description,income_date,received_by,created_by,category_id').eq('household_id',householdId).gte('income_date',from).lt('income_date',to).order('income_date',{ascending:false}).limit(1000),
+ db.from('expenses').select('id,amount,description,expense_date,paid_by,created_by,category_id').eq('household_id',householdId).gte('expense_date',from).lt('expense_date',to).order('expense_date',{ascending:false}).limit(1000)
+ ]);
+ if(i.error)throw i.error;if(e.error)throw e.error;
+ return [...(i.data||[]).map(x=>({...x,kind:'income',date:x.income_date,actor:x.created_by,person:x.received_by})),...(e.data||[]).map(x=>({...x,kind:'expense',date:x.expense_date,actor:x.created_by,person:x.paid_by}))].sort((a,b)=>b.date.localeCompare(a.date));
+}
+async function loadRecent(){let rows=await fetchRows(monthNow());$('recent').innerHTML='';if(!rows.length){$('recent').textContent='هنوز تراکنشی در این ماه ثبت نشده است.';return}rows.slice(0,5).forEach(x=>$('recent').append(rowItem(x,false)))}
+async function loadHistory(){
+ let m=$('filterMonth').value||monthNow(),kind=$('filterKind').value,q=$('searchText').value.trim().toLowerCase();
+ allRows=await fetchRows(m);filteredRows=allRows.filter(x=>(kind==='all'||x.kind===kind)&&(!q||(x.description||'').toLowerCase().includes(q)));
+ const box=$('history');box.innerHTML='';if(!filteredRows.length){box.textContent='موردی با این فیلتر پیدا نشد.';return}filteredRows.forEach(x=>box.append(rowItem(x,true)));
+}
+$('applyFilter').onclick=()=>loadHistory().catch(err);
+async function editRow(x){
+ $('editId').value=x.id;$('editKind').value=x.kind;$('kind').value=x.kind;renderCategorySelect();$('amount').value=x.amount;$('description').value=x.description||'';$('category').value=x.category_id||'';$('date').value=x.date;$('formTitle').textContent='ویرایش تراکنش';$('saveTx').textContent='ذخیره تغییرات';$('cancelEdit').classList.remove('hidden');activateTab('dashboard');window.scrollTo({top:0,behavior:'smooth'});
+}
+$('cancelEdit').onclick=resetForm;
+function resetForm(){$('editId').value='';$('editKind').value='';$('amount').value='';$('description').value='';$('category').value='';$('date').value=today();$('formTitle').textContent='ثبت تراکنش جدید';$('saveTx').textContent='ثبت تراکنش';$('cancelEdit').classList.add('hidden')}
+async function deleteRow(x){
+ if(!confirm('این تراکنش حذف شود؟ این کار قابل بازگشت نیست.'))return;
+ const table=x.kind==='income'?'incomes':'expenses';const {error}=await db.from(table).delete().eq('id',x.id).eq('household_id',householdId);
+ if(error)return err(error);toast('تراکنش حذف شد');await refreshAll();
+}
+$('saveTx').onclick=async()=>{
+ const amount=Number($('amount').value),kind=$('kind').value,date=$('date').value;
+ if(!Number.isFinite(amount)||amount<=0)return toast('مبلغ معتبر وارد کنید.');
+ if(!date)return toast('تاریخ را انتخاب کنید.');
+ const editing=!!$('editId').value,oldKind=$('editKind').value;
+ const payload={amount,description:$('description').value.trim(),category_id:$('category').value?Number($('category').value):null};
+ let result;
+ if(editing&&oldKind!==kind){
+  if(!confirm('نوع تراکنش تغییر می‌کند؛ رکورد قبلی حذف و رکورد جدید ثبت شود؟'))return;
+  const oldTable=oldKind==='income'?'incomes':'expenses';
+  result=await db.from(oldTable).delete().eq('id',Number($('editId').value)).eq('household_id',householdId);
+  if(result.error)return err(result.error);
+  result=await insertTransaction(kind,payload,date);
+ }else if(editing){
+  payload[kind==='income'?'income_date':'expense_date']=date;
+  result=await db.from(kind==='income'?'incomes':'expenses').update(payload).eq('id',Number($('editId').value)).eq('household_id',householdId);
+ }else result=await insertTransaction(kind,payload,date);
+ if(result.error)return err(result.error);
+ resetForm();toast(editing?'تغییرات ذخیره شد':'تراکنش ثبت شد');await refreshAll();
+};
+async function insertTransaction(kind,p,date){
+ const row={...p,household_id:householdId,created_by:user.id};
+ if(kind==='income'){row.income_date=date;row.received_by=user.id;return db.from('incomes').insert(row)}
+ row.expense_date=date;row.paid_by=user.id;return db.from('expenses').insert(row);
+}
+$('saveBudget').onclick=async()=>{
+ const m=$('budgetMonth').value||monthNow(),amount=Number($('budgetAmount').value);
+ if(!Number.isFinite(amount)||amount<=0)return toast('مبلغ بودجه معتبر وارد کنید.');
+ const {error}=await db.from('budgets').upsert({household_id:householdId,month:startOf(m),amount},{onConflict:'household_id,month'});
+ if(error)return err(error);toast('بودجه ذخیره شد');await refreshDashboard();await loadBudgets();
+};
+async function loadBudgets(){
+ const {data,error}=await db.from('budgets').select('month,amount').eq('household_id',householdId).order('month',{ascending:false}).limit(24);
+ if(error)return err(error);const box=$('budgetList');box.innerHTML='<h3 style="font-size:14px">بودجه‌های ثبت‌شده</h3>';
+ if(!data?.length){box.append('بودجه‌ای ثبت نشده است.');return}
+ data.forEach(x=>{let d=document.createElement('div');d.className='item';let a=document.createElement('strong');a.textContent=faDate(x.month);let b=document.createElement('strong');b.textContent=money(x.amount);d.append(a,b);box.append(d)});
+}
+$('addCategory').onclick=async()=>{
+ const name=$('catName').value.trim(),type=$('catType').value;if(!name)return toast('نام دسته‌بندی را وارد کنید.');
+ const {error}=await db.from('categories').insert({household_id:householdId,name,category_type:type});
+ if(error)return err(error);$('catName').value='';await loadCategories();toast('دسته‌بندی اضافه شد');
+};
+$('addSpouse').onclick=async()=>{
+ const email=$('spouseEmail').value.trim();if(!email)return toast('ایمیل همسر را وارد کنید.');
+ const {error}=await db.rpc('add_household_member_by_email',{p_household_id:householdId,p_email:email});
+ if(error)return err(error);$('spouseEmail').value='';toast('حساب به خانواده متصل شد. همسرتان یک‌بار خارج و دوباره وارد شود.');
+};
+function downloadCsv(){
+ const rows=filteredRows;if(!rows.length)return toast('داده‌ای برای خروجی وجود ندارد.');
+ const esc=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+ const lines=[['نوع','تاریخ میلادی','شرح','مبلغ تومان','پرداخت‌کننده/دریافت‌کننده'].map(esc).join(',')];
+ rows.forEach(x=>lines.push([x.kind==='income'?'درآمد':'هزینه',x.date,x.description,x.amount,x.person===user.id?'کاربر فعلی':'عضو خانواده'].map(esc).join(',')));
+ const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='family-finance-'+($('filterMonth').value||monthNow())+'.csv';a.click();URL.revokeObjectURL(url);
+}
+$('exportCsv').onclick=downloadCsv;
+async function loadReports(){
+ const now=new Date(),months=[];for(let i=5;i>=0;i--){let d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))}
+ let totalI=0,totalE=0,vals=[];
+ for(const m of months){let rows=await fetchRows(m),inc=rows.filter(x=>x.kind==='income').reduce((s,x)=>s+Number(x.amount),0),exp=rows.filter(x=>x.kind==='expense').reduce((s,x)=>s+Number(x.amount),0);totalI+=inc;totalE+=exp;vals.push({m,inc,exp})}
+ $('periodIncome').textContent=money(totalI);$('periodExpense').textContent=money(totalE);
+ const max=Math.max(1,...vals.flatMap(x=>[x.inc,x.exp]));const box=$('reportChart');box.innerHTML='';
+ vals.forEach(x=>{let label=document.createElement('div');label.className='barrow';let month=document.createElement('strong');month.textContent=x.m;let bars=document.createElement('div');let bi=document.createElement('div');bi.className='barbg';let fi=document.createElement('div');fi.className='barfill';fi.style.width=(x.inc/max*100)+'%';bi.append(fi);let be=document.createElement('div');be.className='barbg';be.style.marginTop='5px';let fe=document.createElement('div');fe.className='barfill';fe.style.background='#d56a6a';fe.style.width=(x.exp/max*100)+'%';be.append(fe);bars.append(bi,be);let nums=document.createElement('div');nums.textContent='+'+Math.round(x.inc/1000000*10)/10+'م / −'+Math.round(x.exp/1000000*10)/10+'م';label.append(month,bars,nums);box.append(label)});
+ let legend=document.createElement('p');legend.className='muted';legend.textContent='نوار اول درآمد و نوار دوم هزینه است. ارقام کنار هر ماه به میلیون تومان نمایش داده شده‌اند.';box.append(legend);
+}
+async function refreshAll(){await Promise.all([refreshDashboard(),loadHistory(),loadBudgets()]);}
+(async()=>{try{const {data:{session}}=await db.auth.getSession();if(session){try{await start(session.user)}catch(e){showApp(false);err(e)}}}catch(e){err(e)}})();
+</script>
+</body>
+</html>
